@@ -36,7 +36,7 @@ def valid_position(pt):
     # numpy.linalg.norm(pt - JOINT_CENTER) < MAX_RADIUS
     pt_z = pt - JOINT_CENTER
     lensq = pt_z.dot(pt_z)
-    return MIN_RADIUS < lensq and lensq < MAX_RADIUS_SQ
+    return MIN_RADIUS_SQ < lensq and lensq < MAX_RADIUS_SQ
 
 def feq(x1, x2, eps = EPSILON):
     return abs(x1 - x2) < eps
