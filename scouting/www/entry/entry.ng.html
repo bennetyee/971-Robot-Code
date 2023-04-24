@@ -1,5 +1,8 @@
 <div class="header" #header>
-  <h2>{{section}}</h2>
+  <h2>
+    <span *ngIf="section != 'Team Selection'">{{teamNumber}}</span>
+    {{section}}
+  </h2>
 </div>
 <ng-container [ngSwitch]="section">
   <div
@@ -11,6 +14,7 @@
       <label for="match_number">Match Number</label>
       <input
         [(ngModel)]="matchNumber"
+        (ngModelChange)="updateTeamSelectionValidity()"
         type="number"
         id="match_number"
         min="1"
@@ -21,6 +25,7 @@
       <label for="team_number">Team Number</label>
       <input
         [(ngModel)]="teamNumber"
+        (ngModelChange)="updateTeamSelectionValidity()"
         type="number"
         id="team_number"
         min="1"
@@ -31,6 +36,7 @@
       <label for="set_number">Set Number</label>
       <input
         [(ngModel)]="setNumber"
+        (ngModelChange)="updateTeamSelectionValidity()"
         type="number"
         id="set_number"
         min="1"
@@ -39,16 +45,36 @@
     </div>
     <div class="row">
       <label for="comp_level">Comp Level</label>
-      <select [(ngModel)]="compLevel" type="number" id="comp_level">
+      <select
+        [(ngModel)]="compLevel"
+        (ngModelChange)="updateTeamSelectionValidity()"
+        type="number"
+        id="comp_level"
+      >
         <option *ngFor="let level of COMP_LEVELS" [ngValue]="level">
           {{COMP_LEVEL_LABELS[level]}}
         </option>
       </select>
     </div>
+    <div class="row">
+      <label>
+        <input
+          id="pre_scouting"
+          type="checkbox"
+          [(ngModel)]="preScouting"
+          (ngModelChange)="updateTeamSelectionValidity()"
+        />
+        Pre-scouting
+      </label>
+    </div>
     <div class="buttons">
       <!-- hack to right align the next button -->
       <div></div>
-      <button class="btn btn-primary" (click)="changeSectionTo('Init');">
+      <button
+        class="btn btn-primary"
+        (click)="changeSectionTo('Init');"
+        [disabled]="!teamSelectionIsValid"
+      >
         Next
       </button>
     </div>
@@ -89,7 +115,13 @@
     <h6 class="text-muted">
       Last Action: {{actionList[actionList.length - 1].type}}
     </h6>
-    <div class="d-grid gap-5">
+    <!--
+      Decrease distance between buttons during auto to make space for auto balancing
+      selection and keep all buttons visible without scrolling on most devices.
+    -->
+    <div
+      [ngClass]="{'d-grid': true, 'gap-3': autoPhase === true, 'gap-5': autoPhase === false}"
+    >
       <button class="btn btn-secondary" (click)="undoLastAction()">UNDO</button>
       <button
         class="btn btn-danger"
@@ -109,35 +141,34 @@
       >
         CUBE
       </button>
+      <button
+        *ngIf="autoPhase && !mobilityCompleted"
+        class="btn btn-light"
+        (click)="addAction({type: 'mobilityAction', mobility: true});"
+      >
+        Mobility
+      </button>
       <!-- 'Balancing' during auto. -->
       <div *ngIf="autoPhase" class="d-grid gap-2">
         <label>
           <input #docked type="checkbox" />
-          Docked
+          Docked (on the charging station)
         </label>
         <label>
           <input #engaged type="checkbox" />
-          Engaged
+          Engaged (level &amp; station lights on)
         </label>
         <label>
           <input #attempted type="checkbox" />
           Attempted to dock and engage but failed
         </label>
-        <br />
         <button
-          class="btn btn-info"
-          (click)="addAction({type: 'autoBalanceAction', docked: dockedValue, engaged: engagedValue, balanceAttempt: attempted.checked});"
+          class="btn btn-dark"
+          (click)="autoPhase = false; addAction({type: 'endAutoPhase'}); addAction({type: 'autoBalanceAction', docked: docked.checked, engaged: engaged.checked, balanceAttempt: attempted.checked});"
         >
-          Submit Balancing
+          Start Teleop
         </button>
       </div>
-      <button
-        *ngIf="autoPhase"
-        class="btn btn-info"
-        (click)="autoPhase = false; addAction({type: 'endAutoPhase'});"
-      >
-        Start Teleop
-      </button>
       <button
         *ngIf="!autoPhase"
         class="btn btn-info"
@@ -151,7 +182,13 @@
     <h6 class="text-muted">
       Last Action: {{actionList[actionList.length - 1].type}}
     </h6>
-    <div class="d-grid gap-5">
+    <!--
+      Decrease distance between buttons during auto to make space for auto balancing
+      selection and keep all buttons visible without scrolling on most devices.
+    -->
+    <div
+      [ngClass]="{'d-grid': true, 'gap-3': autoPhase === true, 'gap-5': autoPhase === false}"
+    >
       <button class="btn btn-secondary" (click)="undoLastAction()">UNDO</button>
       <button
         class="btn btn-danger"
@@ -177,35 +214,43 @@
       >
         LOW
       </button>
+      <button
+        *ngIf="autoPhase && !mobilityCompleted"
+        class="btn btn-light"
+        (click)="addAction({type: 'mobilityAction', mobility: true});"
+      >
+        Mobility
+      </button>
+      <!-- Impossible to place supercharged pieces in auto. -->
+      <div *ngIf="autoPhase == false" class="d-grid gap-2">
+        <button
+          class="btn btn-dark"
+          (click)="changeSectionTo('Pickup'); addAction({type: 'placeObjectAction', scoreLevel: ScoreLevel.kSupercharged});"
+        >
+          SUPERCHARGED
+        </button>
+      </div>
       <!-- 'Balancing' during auto. -->
-      <div *ngIf="autoPhase" class="d-grid gap-2">
+      <div *ngIf="autoPhase" class="d-grid gap-1">
         <label>
           <input #docked type="checkbox" />
-          Docked
+          Docked (on the charging station)
         </label>
         <label>
           <input #engaged type="checkbox" />
-          Engaged
+          Engaged (level &amp; station lights on)
         </label>
         <label>
           <input #attempted type="checkbox" />
           Attempted to dock and engage but failed
         </label>
-        <br />
         <button
-          class="btn btn-info"
-          (click)="addAction({type: 'autoBalanceAction', docked: dockedValue, engaged: engagedValue, balanceAttempt: attempted.checked});"
+          class="btn btn-dark"
+          (click)="autoPhase = false; addAction({type: 'endAutoPhase'}); addAction({type: 'autoBalanceAction', docked: docked.checked, engaged: engaged.checked, balanceAttempt: attempted.checked});"
         >
-          Submit Balancing
+          Start Teleop
         </button>
       </div>
-      <button
-        *ngIf="autoPhase"
-        class="btn btn-info"
-        (click)="autoPhase = false; addAction({type: 'endAutoPhase'});"
-      >
-        Start Teleop
-      </button>
       <button
         *ngIf="!autoPhase"
         class="btn btn-info"
@@ -229,11 +274,11 @@
       </button>
       <label>
         <input #docked type="checkbox" />
-        Docked
+        Docked (on the charging station)
       </label>
       <label>
         <input #engaged type="checkbox" />
-        Engaged
+        Engaged (level &amp; station lights on)
       </label>
       <label>
         <input #attempted type="checkbox" />
@@ -275,5 +320,6 @@
     <h2>Successfully submitted data.</h2>
   </div>
 
+  <span class="progress_message" role="alert">{{ progressMessage }}</span>
   <span class="error_message" role="alert">{{ errorMessage }}</span>
 </ng-container>

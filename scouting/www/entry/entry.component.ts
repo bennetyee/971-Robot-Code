@@ -15,6 +15,7 @@ import {
   ScoreLevel,
   SubmitActions,
   StartMatchAction,
+  MobilityAction,
   AutoBalanceAction,
   PickupObjectAction,
   PlaceObjectAction,
@@ -23,6 +24,8 @@ import {
   ActionType,
   Action,
 } from '../../webserver/requests/messages/submit_actions_generated';
+import {Match} from '../../webserver/requests/messages/request_all_matches_response_generated';
+import {MatchListRequestor} from '@org_frc971/scouting/www/rpc';
 
 type Section =
   | 'Team Selection'
@@ -52,6 +55,11 @@ type ActionT =
       type: 'startMatchAction';
       timestamp?: number;
       position: number;
+    }
+  | {
+      type: 'mobilityAction';
+      timestamp?: number;
+      mobility: boolean;
     }
   | {
       type: 'autoBalanceAction';
@@ -97,7 +105,7 @@ type ActionT =
   templateUrl: './entry.ng.html',
   styleUrls: ['../app/common.css', './entry.component.css'],
 })
-export class EntryComponent {
+export class EntryComponent implements OnInit {
   // Re-export the type here so that we can use it in the `[value]` attribute
   // of radio buttons.
   readonly COMP_LEVELS = COMP_LEVELS;
@@ -106,18 +114,84 @@ export class EntryComponent {
   readonly ScoreLevel = ScoreLevel;
 
   section: Section = 'Team Selection';
-  @Output() switchTabsEvent = new EventEmitter<string>();
   @Input() matchNumber: number = 1;
+  // TODO(phil): Change the type of teamNumber to a string.
   @Input() teamNumber: number = 1;
   @Input() setNumber: number = 1;
   @Input() compLevel: CompLevel = 'qm';
+  @Input() skipTeamSelection = false;
+
+  matchList: Match[] = [];
 
   actionList: ActionT[] = [];
+  progressMessage: string = '';
   errorMessage: string = '';
   autoPhase: boolean = true;
+  mobilityCompleted: boolean = false;
   lastObject: ObjectType = null;
 
+  preScouting: boolean = false;
   matchStartTimestamp: number = 0;
+
+  teamSelectionIsValid = false;
+
+  constructor(private readonly matchListRequestor: MatchListRequestor) {}
+
+  ngOnInit() {
+    // When the user navigated from the match list, we can skip the team
+    // selection. I.e. we trust that the user clicked the correct button.
+    this.section = this.skipTeamSelection ? 'Init' : 'Team Selection';
+
+    if (this.section == 'Team Selection') {
+      this.fetchMatchList();
+    }
+  }
+
+  async fetchMatchList() {
+    this.progressMessage = 'Fetching match list. Please be patient.';
+    this.errorMessage = '';
+
+    try {
+      this.matchList = await this.matchListRequestor.fetchMatchList();
+      this.progressMessage = 'Successfully fetched match list.';
+    } catch (e) {
+      this.errorMessage = e;
+      this.progressMessage = '';
+    }
+  }
+
+  // This gets called when the user changes something on the Init screen.
+  // It makes sure that the user can't click "Next" until the information is
+  // valid, or this is for pre-scouting.
+  updateTeamSelectionValidity(): void {
+    this.teamSelectionIsValid = this.preScouting || this.matchIsInMatchList();
+  }
+
+  matchIsInMatchList(): boolean {
+    // If the user deletes the content of the teamNumber field, the value here
+    // is undefined. Guard against that.
+    if (this.teamNumber == null) {
+      return false;
+    }
+    const teamNumber = this.teamNumber.toString();
+
+    for (const match of this.matchList) {
+      if (
+        this.matchNumber == match.matchNumber() &&
+        this.setNumber == match.setNumber() &&
+        this.compLevel == match.compLevel() &&
+        (teamNumber === match.r1() ||
+          teamNumber === match.r2() ||
+          teamNumber === match.r3() ||
+          teamNumber === match.b1() ||
+          teamNumber === match.b2() ||
+          teamNumber === match.b3())
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   addAction(action: ActionT): void {
     if (action.type == 'startMatchAction') {
@@ -127,6 +201,17 @@ export class EntryComponent {
     } else {
       // Unix nanosecond timestamp relative to match start.
       action.timestamp = Date.now() * 1e6 - this.matchStartTimestamp;
+    }
+
+    if (action.type == 'mobilityAction') {
+      this.mobilityCompleted = true;
+    }
+
+    if (action.type == 'autoBalanceAction') {
+      // Timestamp is a unique index in the database so
+      // adding one makes sure it dosen't overlap with the
+      // start teleop action that is added at the same time.
+      action.timestamp += 1;
     }
 
     if (
@@ -171,6 +256,10 @@ export class EntryComponent {
   }
 
   changeSectionTo(target: Section) {
+    // Clear the messages since they won't be relevant in the next section.
+    this.errorMessage = '';
+    this.progressMessage = '';
+
     this.section = target;
   }
 
@@ -199,22 +288,18 @@ export class EntryComponent {
             startMatchActionOffset
           );
           break;
-
-        case 'pickupObjectAction':
-          const pickupObjectActionOffset =
-            PickupObjectAction.createPickupObjectAction(
-              builder,
-              action.objectType,
-              action.auto || false
-            );
+        case 'mobilityAction':
+          const mobilityActionOffset = MobilityAction.createMobilityAction(
+            builder,
+            action.mobility
+          );
           actionOffset = Action.createAction(
             builder,
             BigInt(action.timestamp || 0),
-            ActionType.PickupObjectAction,
-            pickupObjectActionOffset
+            ActionType.MobilityAction,
+            mobilityActionOffset
           );
           break;
-
         case 'autoBalanceAction':
           const autoBalanceActionOffset =
             AutoBalanceAction.createAutoBalanceAction(
@@ -231,6 +316,20 @@ export class EntryComponent {
           );
           break;
 
+        case 'pickupObjectAction':
+          const pickupObjectActionOffset =
+            PickupObjectAction.createPickupObjectAction(
+              builder,
+              action.objectType,
+              action.auto || false
+            );
+          actionOffset = Action.createAction(
+            builder,
+            BigInt(action.timestamp || 0),
+            ActionType.PickupObjectAction,
+            pickupObjectActionOffset
+          );
+          break;
         case 'placeObjectAction':
           const placeObjectActionOffset =
             PlaceObjectAction.createPlaceObjectAction(
@@ -298,10 +397,11 @@ export class EntryComponent {
     SubmitActions.addSetNumber(builder, this.setNumber);
     SubmitActions.addCompLevel(builder, compLevelFb);
     SubmitActions.addActionsList(builder, actionsVector);
+    SubmitActions.addPreScouting(builder, this.preScouting);
     builder.finish(SubmitActions.endSubmitActions(builder));
 
     const buffer = builder.asUint8Array();
-    const res = await fetch('/requests/submit/actions', {
+    const res = await fetch('/requests/submit/submit_actions', {
       method: 'POST',
       body: buffer,
     });

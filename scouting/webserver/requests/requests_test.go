@@ -129,8 +129,8 @@ func TestRequestAllMatches(t *testing.T) {
 				LowConesAuto: 1, MiddleConesAuto: 2, HighConesAuto: 1,
 				ConesDroppedAuto: 0, LowCubes: 1, MiddleCubes: 1,
 				HighCubes: 2, CubesDropped: 1, LowCones: 1,
-				MiddleCones: 2, HighCones: 0, ConesDropped: 1,
-				AvgCycle: 34, DockedAuto: true, EngagedAuto: true,
+				MiddleCones: 2, HighCones: 0, ConesDropped: 1, SuperchargedPieces: 0,
+				AvgCycle: 34, Mobility: false, DockedAuto: true, EngagedAuto: true,
 				BalanceAttemptAuto: false, Docked: false, Engaged: false,
 				BalanceAttempt: false, CollectedBy: "alex",
 			},
@@ -141,8 +141,8 @@ func TestRequestAllMatches(t *testing.T) {
 				LowConesAuto: 0, MiddleConesAuto: 0, HighConesAuto: 0,
 				ConesDroppedAuto: 1, LowCubes: 0, MiddleCubes: 0,
 				HighCubes: 1, CubesDropped: 0, LowCones: 0,
-				MiddleCones: 2, HighCones: 1, ConesDropped: 1,
-				AvgCycle: 53, DockedAuto: true, EngagedAuto: false,
+				MiddleCones: 2, HighCones: 1, ConesDropped: 1, SuperchargedPieces: 0,
+				AvgCycle: 53, Mobility: true, DockedAuto: true, EngagedAuto: false,
 				BalanceAttemptAuto: false, Docked: false, Engaged: false,
 				BalanceAttempt: true, CollectedBy: "bob",
 			},
@@ -214,8 +214,8 @@ func TestRequest2023DataScouting(t *testing.T) {
 				LowConesAuto: 1, MiddleConesAuto: 2, HighConesAuto: 1,
 				ConesDroppedAuto: 0, LowCubes: 1, MiddleCubes: 1,
 				HighCubes: 2, CubesDropped: 1, LowCones: 1,
-				MiddleCones: 2, HighCones: 0, ConesDropped: 1,
-				AvgCycle: 34, DockedAuto: true, EngagedAuto: false,
+				MiddleCones: 2, HighCones: 0, ConesDropped: 1, SuperchargedPieces: 0,
+				AvgCycle: 34, Mobility: false, DockedAuto: true, EngagedAuto: false,
 				BalanceAttemptAuto: false, Docked: false, Engaged: false,
 				BalanceAttempt: true, CollectedBy: "isaac",
 			},
@@ -226,8 +226,8 @@ func TestRequest2023DataScouting(t *testing.T) {
 				LowConesAuto: 0, MiddleConesAuto: 0, HighConesAuto: 0,
 				ConesDroppedAuto: 1, LowCubes: 0, MiddleCubes: 0,
 				HighCubes: 1, CubesDropped: 0, LowCones: 0,
-				MiddleCones: 2, HighCones: 1, ConesDropped: 1,
-				AvgCycle: 53, DockedAuto: false, EngagedAuto: false,
+				MiddleCones: 2, HighCones: 1, ConesDropped: 1, SuperchargedPieces: 0,
+				AvgCycle: 53, Mobility: false, DockedAuto: false, EngagedAuto: false,
 				BalanceAttemptAuto: true, Docked: false, Engaged: false,
 				BalanceAttempt: true, CollectedBy: "unknown",
 			},
@@ -255,8 +255,8 @@ func TestRequest2023DataScouting(t *testing.T) {
 				LowConesAuto: 1, MiddleConesAuto: 2, HighConesAuto: 1,
 				ConesDroppedAuto: 0, LowCubes: 1, MiddleCubes: 1,
 				HighCubes: 2, CubesDropped: 1, LowCones: 1,
-				MiddleCones: 2, HighCones: 0, ConesDropped: 1,
-				AvgCycle: 34, DockedAuto: true, EngagedAuto: false,
+				MiddleCones: 2, HighCones: 0, ConesDropped: 1, SuperchargedPieces: 0,
+				AvgCycle: 34, Mobility: false, DockedAuto: true, EngagedAuto: false,
 				BalanceAttemptAuto: false, Docked: false, Engaged: false,
 				BalanceAttempt: true, CollectedBy: "isaac",
 			},
@@ -267,8 +267,8 @@ func TestRequest2023DataScouting(t *testing.T) {
 				LowConesAuto: 0, MiddleConesAuto: 0, HighConesAuto: 0,
 				ConesDroppedAuto: 1, LowCubes: 0, MiddleCubes: 0,
 				HighCubes: 1, CubesDropped: 0, LowCones: 0,
-				MiddleCones: 2, HighCones: 1, ConesDropped: 1,
-				AvgCycle: 53, DockedAuto: false, EngagedAuto: false,
+				MiddleCones: 2, HighCones: 1, ConesDropped: 1, SuperchargedPieces: 0,
+				AvgCycle: 53, Mobility: false, DockedAuto: false, EngagedAuto: false,
 				BalanceAttemptAuto: true, Docked: false, Engaged: false,
 				BalanceAttempt: true, CollectedBy: "unknown",
 			},
@@ -292,7 +292,6 @@ func TestConvertActionsToStat(t *testing.T) {
 		MatchNumber: 3,
 		SetNumber:   1,
 		CompLevel:   "quals",
-		CollectedBy: "katie",
 		ActionsList: []*submit_actions.ActionT{
 			{
 				ActionTaken: &submit_actions.ActionTypeT{
@@ -336,6 +335,15 @@ func TestConvertActionsToStat(t *testing.T) {
 			},
 			{
 				ActionTaken: &submit_actions.ActionTypeT{
+					Type: submit_actions.ActionTypeMobilityAction,
+					Value: &submit_actions.MobilityActionT{
+						Mobility: true,
+					},
+				},
+				Timestamp: 2200,
+			},
+			{
+				ActionTaken: &submit_actions.ActionTypeT{
 					Type: submit_actions.ActionTypeAutoBalanceAction,
 					Value: &submit_actions.AutoBalanceActionT{
 						Docked:         true,
@@ -368,6 +376,27 @@ func TestConvertActionsToStat(t *testing.T) {
 			},
 			{
 				ActionTaken: &submit_actions.ActionTypeT{
+					Type: submit_actions.ActionTypePickupObjectAction,
+					Value: &submit_actions.PickupObjectActionT{
+						ObjectType: submit_actions.ObjectTypekCube,
+						Auto:       false,
+					},
+				},
+				Timestamp: 3500,
+			},
+			{
+				ActionTaken: &submit_actions.ActionTypeT{
+					Type: submit_actions.ActionTypePlaceObjectAction,
+					Value: &submit_actions.PlaceObjectActionT{
+						ObjectType: submit_actions.ObjectTypekCube,
+						ScoreLevel: submit_actions.ScoreLevelkSupercharged,
+						Auto:       false,
+					},
+				},
+				Timestamp: 3900,
+			},
+			{
+				ActionTaken: &submit_actions.ActionTypeT{
 					Type: submit_actions.ActionTypeEndMatchAction,
 					Value: &submit_actions.EndMatchActionT{
 						Docked:         true,
@@ -375,9 +404,10 @@ func TestConvertActionsToStat(t *testing.T) {
 						BalanceAttempt: true,
 					},
 				},
-				Timestamp: 4000,
+				Timestamp: 4200,
 			},
 		},
+		PreScouting: false,
 	}).Pack(builder))
 
 	submitActions := submit_actions.GetRootAsSubmitActions(builder.FinishedBytes(), 0)
@@ -388,16 +418,17 @@ func TestConvertActionsToStat(t *testing.T) {
 	}
 
 	expected := db.Stats2023{
-		TeamNumber: "4244", MatchNumber: 3, SetNumber: 1,
+		PreScouting: false,
+		TeamNumber:  "4244", MatchNumber: 3, SetNumber: 1,
 		CompLevel: "quals", StartingQuadrant: 1, LowCubesAuto: 1,
 		MiddleCubesAuto: 0, HighCubesAuto: 0, CubesDroppedAuto: 1,
 		LowConesAuto: 0, MiddleConesAuto: 0, HighConesAuto: 0,
 		ConesDroppedAuto: 0, LowCubes: 0, MiddleCubes: 0,
 		HighCubes: 0, CubesDropped: 0, LowCones: 0,
-		MiddleCones: 0, HighCones: 1, ConesDropped: 0,
-		AvgCycle: 1100, DockedAuto: true, EngagedAuto: true,
+		MiddleCones: 0, HighCones: 1, ConesDropped: 0, SuperchargedPieces: 1,
+		AvgCycle: 950, Mobility: true, DockedAuto: true, EngagedAuto: true,
 		BalanceAttemptAuto: false, Docked: true, Engaged: false,
-		BalanceAttempt: true, CollectedBy: "katie",
+		BalanceAttempt: true, CollectedBy: "",
 	}
 
 	if expected != response {
@@ -418,7 +449,7 @@ func TestSubmitNotes(t *testing.T) {
 		Notes:          "Notes",
 		GoodDriving:    true,
 		BadDriving:     false,
-		SolidPickup:    true,
+		SolidPlacing:   true,
 		SketchyPlacing: false,
 		GoodDefense:    true,
 		BadDefense:     false,
@@ -436,7 +467,7 @@ func TestSubmitNotes(t *testing.T) {
 			Notes:          "Notes",
 			GoodDriving:    true,
 			BadDriving:     false,
-			SolidPickup:    true,
+			SolidPlacing:   true,
 			SketchyPlacing: false,
 			GoodDefense:    true,
 			BadDefense:     false,
@@ -456,7 +487,7 @@ func TestRequestNotes(t *testing.T) {
 			Notes:          "Notes",
 			GoodDriving:    true,
 			BadDriving:     false,
-			SolidPickup:    true,
+			SolidPlacing:   true,
 			SketchyPlacing: false,
 			GoodDefense:    true,
 			BadDefense:     false,
@@ -684,7 +715,7 @@ func TestRequestAllNotes(t *testing.T) {
 				Notes:          "Notes",
 				GoodDriving:    true,
 				BadDriving:     false,
-				SolidPickup:    true,
+				SolidPlacing:   true,
 				SketchyPlacing: false,
 				GoodDefense:    true,
 				BadDefense:     false,
@@ -695,7 +726,7 @@ func TestRequestAllNotes(t *testing.T) {
 				Notes:          "More Notes",
 				GoodDriving:    false,
 				BadDriving:     false,
-				SolidPickup:    false,
+				SolidPlacing:   false,
 				SketchyPlacing: true,
 				GoodDefense:    false,
 				BadDefense:     true,
@@ -723,7 +754,7 @@ func TestRequestAllNotes(t *testing.T) {
 				Notes:          "Notes",
 				GoodDriving:    true,
 				BadDriving:     false,
-				SolidPickup:    true,
+				SolidPlacing:   true,
 				SketchyPlacing: false,
 				GoodDefense:    true,
 				BadDefense:     false,
@@ -734,7 +765,7 @@ func TestRequestAllNotes(t *testing.T) {
 				Notes:          "More Notes",
 				GoodDriving:    false,
 				BadDriving:     false,
-				SolidPickup:    false,
+				SolidPlacing:   false,
 				SketchyPlacing: true,
 				GoodDefense:    false,
 				BadDefense:     true,
@@ -752,6 +783,130 @@ func TestRequestAllNotes(t *testing.T) {
 	}
 }
 
+func packAction(action *submit_actions.ActionT) []byte {
+	builder := flatbuffers.NewBuilder(50 * 1024)
+	builder.Finish((action).Pack(builder))
+	return (builder.FinishedBytes())
+}
+
+func TestAddingActions(t *testing.T) {
+	database := MockDatabase{}
+	scoutingServer := server.NewScoutingServer()
+	HandleRequests(&database, scoutingServer)
+	scoutingServer.Start(8080)
+	defer scoutingServer.Stop()
+
+	builder := flatbuffers.NewBuilder(1024)
+	builder.Finish((&submit_actions.SubmitActionsT{
+		TeamNumber:  "1234",
+		MatchNumber: 4,
+		SetNumber:   1,
+		CompLevel:   "qual",
+		ActionsList: []*submit_actions.ActionT{
+			{
+				ActionTaken: &submit_actions.ActionTypeT{
+					Type: submit_actions.ActionTypePickupObjectAction,
+					Value: &submit_actions.PickupObjectActionT{
+						ObjectType: submit_actions.ObjectTypekCube,
+						Auto:       true,
+					},
+				},
+				Timestamp: 2400,
+			},
+			{
+				ActionTaken: &submit_actions.ActionTypeT{
+					Type: submit_actions.ActionTypePlaceObjectAction,
+					Value: &submit_actions.PlaceObjectActionT{
+						ObjectType: submit_actions.ObjectTypekCube,
+						ScoreLevel: submit_actions.ScoreLevelkLow,
+						Auto:       false,
+					},
+				},
+				Timestamp: 1009,
+			},
+		},
+		PreScouting: true,
+	}).Pack(builder))
+
+	_, err := debug.SubmitActions("http://localhost:8080", builder.FinishedBytes())
+	if err != nil {
+		t.Fatal("Failed to submit actions: ", err)
+	}
+
+	// Make sure that the data made it into the database.
+	// TODO: Add this back when we figure out how to add the serialized action into the database.
+
+	/* expectedActionsT := []*submit_actions.ActionT{
+		{
+			ActionTaken: &submit_actions.ActionTypeT{
+				Type:	submit_actions.ActionTypePickupObjectAction,
+				Value:	&submit_actions.PickupObjectActionT{
+					ObjectType: submit_actions.ObjectTypekCube,
+					Auto: true,
+				},
+			},
+			Timestamp:       2400,
+		},
+		{
+			ActionTaken: &submit_actions.ActionTypeT{
+				Type:	submit_actions.ActionTypePlaceObjectAction,
+				Value:	&submit_actions.PlaceObjectActionT{
+					ObjectType: submit_actions.ObjectTypekCube,
+					ScoreLevel: submit_actions.ScoreLevelkLow,
+					Auto: false,
+				},
+			},
+			Timestamp:       1009,
+		},
+	} */
+
+	expectedActions := []db.Action{
+		{
+			PreScouting:     true,
+			TeamNumber:      "1234",
+			MatchNumber:     4,
+			SetNumber:       1,
+			CompLevel:       "qual",
+			CollectedBy:     "debug_cli",
+			CompletedAction: []byte{},
+			TimeStamp:       2400,
+		},
+		{
+			PreScouting:     true,
+			TeamNumber:      "1234",
+			MatchNumber:     4,
+			SetNumber:       1,
+			CompLevel:       "qual",
+			CollectedBy:     "debug_cli",
+			CompletedAction: []byte{},
+			TimeStamp:       1009,
+		},
+	}
+
+	expectedStats := []db.Stats2023{
+		db.Stats2023{
+			PreScouting: true,
+			TeamNumber:  "1234", MatchNumber: 4, SetNumber: 1,
+			CompLevel: "qual", StartingQuadrant: 0, LowCubesAuto: 0,
+			MiddleCubesAuto: 0, HighCubesAuto: 0, CubesDroppedAuto: 0,
+			LowConesAuto: 0, MiddleConesAuto: 0, HighConesAuto: 0,
+			ConesDroppedAuto: 0, LowCubes: 1, MiddleCubes: 0,
+			HighCubes: 0, CubesDropped: 0, LowCones: 0,
+			MiddleCones: 0, HighCones: 0, ConesDropped: 0, SuperchargedPieces: 0,
+			AvgCycle: 0, Mobility: false, DockedAuto: false, EngagedAuto: false,
+			BalanceAttemptAuto: false, Docked: false, Engaged: false,
+			BalanceAttempt: false, CollectedBy: "debug_cli",
+		},
+	}
+
+	if !reflect.DeepEqual(expectedActions, database.actions) {
+		t.Fatal("Expected ", expectedActions, ", but got:", database.actions)
+	}
+	if !reflect.DeepEqual(expectedStats, database.stats2023) {
+		t.Fatal("Expected ", expectedStats, ", but got:", database.stats2023)
+	}
+}
+
 // A mocked database we can use for testing. Add functionality to this as
 // needed for your tests.
 
@@ -761,6 +916,7 @@ type MockDatabase struct {
 	shiftSchedule  []db.Shift
 	driver_ranking []db.DriverRankingData
 	stats2023      []db.Stats2023
+	actions        []db.Action
 }
 
 func (database *MockDatabase) AddToMatch(match db.TeamMatch) error {
@@ -780,10 +936,10 @@ func (database *MockDatabase) ReturnStats2023() ([]db.Stats2023, error) {
 	return database.stats2023, nil
 }
 
-func (database *MockDatabase) ReturnStats2023ForTeam(teamNumber string, matchNumber int32, setNumber int32, compLevel string) ([]db.Stats2023, error) {
+func (database *MockDatabase) ReturnStats2023ForTeam(teamNumber string, matchNumber int32, setNumber int32, compLevel string, preScouting bool) ([]db.Stats2023, error) {
 	var results []db.Stats2023
 	for _, stats := range database.stats2023 {
-		if stats.TeamNumber == teamNumber && stats.MatchNumber == matchNumber && stats.SetNumber == setNumber && stats.CompLevel == compLevel {
+		if stats.TeamNumber == teamNumber && stats.MatchNumber == matchNumber && stats.SetNumber == setNumber && stats.CompLevel == compLevel && stats.PreScouting == preScouting {
 			results = append(results, stats)
 		}
 	}
@@ -829,4 +985,13 @@ func (database *MockDatabase) AddDriverRanking(data db.DriverRankingData) error 
 
 func (database *MockDatabase) ReturnAllDriverRankings() ([]db.DriverRankingData, error) {
 	return database.driver_ranking, nil
+}
+
+func (database *MockDatabase) AddAction(action db.Action) error {
+	database.actions = append(database.actions, action)
+	return nil
+}
+
+func (database *MockDatabase) ReturnActions() ([]db.Action, error) {
+	return database.actions, nil
 }

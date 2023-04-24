@@ -224,11 +224,13 @@ cc_library(
     ],
     data = [
         "//y2023:aos_config",
+        "@game_pieces_edgetpu_model//file",
     ],
     target_compatible_with = ["@platforms//os:linux"],
     visibility = ["//y2023:__subpackages__"],
     deps = [
         ":game_pieces_fbs",
+        ":yolov5_lib",
         "//aos/events:event_loop",
         "//aos/events:shm_event_loop",
         "//frc971/vision:vision_fbs",
@@ -273,10 +275,12 @@ cc_library(
     name = "yolov5_lib",
     srcs = ["yolov5.cc"],
     hdrs = ["yolov5.h"],
+    copts = ["-Wno-unused-parameter"],
     deps = [
         "//third_party:opencv",
         "@com_github_gflags_gflags//:gflags",
         "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/types:span",
     ] + cpu_select({
         "amd64": [
             "@libtensorflowlite//:tensorflow-k8",
@@ -287,4 +291,32 @@ cc_library(
             "@libedgetpu//:libedgetpu-arm",
         ],
     }),
+)
+
+filegroup(
+    name = "game_pieces_detector_starter",
+    srcs = ["game_pieces_detector_starter.sh"],
+    visibility = ["//visibility:public"],
+)
+
+cc_library(
+    name = "camera_monitor_lib",
+    srcs = ["camera_monitor_lib.cc"],
+    hdrs = ["camera_monitor_lib.h"],
+    deps = [
+        "//aos/events:event_loop",
+        "//aos/starter:starter_rpc_lib",
+        "//frc971/vision:vision_fbs",
+    ],
+)
+
+cc_binary(
+    name = "camera_monitor",
+    srcs = ["camera_monitor.cc"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":camera_monitor_lib",
+        "//aos:init",
+        "//aos/events:shm_event_loop",
+    ],
 )

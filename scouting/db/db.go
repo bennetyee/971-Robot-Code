@@ -28,6 +28,11 @@ type Shift struct {
 }
 
 type Stats2023 struct {
+	// This is set to `true` for "pre-scouted" matches. This means that the
+	// match information is unlikely to correspond with an entry in the
+	// `TeamMatch` table.
+	PreScouting bool `gorm:"primaryKey"`
+
 	TeamNumber                                                     string `gorm:"primaryKey"`
 	MatchNumber                                                    int32  `gorm:"primaryKey"`
 	SetNumber                                                      int32  `gorm:"primaryKey"`
@@ -37,7 +42,9 @@ type Stats2023 struct {
 	LowConesAuto, MiddleConesAuto, HighConesAuto, ConesDroppedAuto int32
 	LowCubes, MiddleCubes, HighCubes, CubesDropped                 int32
 	LowCones, MiddleCones, HighCones, ConesDropped                 int32
+	SuperchargedPieces                                             int32
 	AvgCycle                                                       int64
+	Mobility                                                       bool
 	DockedAuto, EngagedAuto, BalanceAttemptAuto                    bool
 	Docked, Engaged, BalanceAttempt                                bool
 
@@ -48,13 +55,15 @@ type Stats2023 struct {
 }
 
 type Action struct {
-	TeamNumber      string `gorm:"primaryKey"`
-	MatchNumber     int32  `gorm:"primaryKey"`
-	SetNumber       int32  `gorm:"primaryKey"`
-	CompLevel       string `gorm:"primaryKey"`
-	CompletedAction []byte
+	PreScouting bool   `gorm:"primaryKey"`
+	TeamNumber  string `gorm:"primaryKey"`
+	MatchNumber int32  `gorm:"primaryKey"`
+	SetNumber   int32  `gorm:"primaryKey"`
+	CompLevel   string `gorm:"primaryKey"`
 	// This contains a serialized scouting.webserver.requests.ActionType flatbuffer.
-	TimeStamp   int32 `gorm:"primaryKey"`
+	CompletedAction []byte
+	// TODO(phil): Get all the spellings of "timestamp" to be the same.
+	TimeStamp   int64 `gorm:"primaryKey"`
 	CollectedBy string
 }
 
@@ -64,7 +73,7 @@ type NotesData struct {
 	Notes          string
 	GoodDriving    bool
 	BadDriving     bool
-	SolidPickup    bool
+	SolidPlacing   bool
 	SketchyPlacing bool
 	GoodDefense    bool
 	BadDefense     bool
@@ -153,28 +162,30 @@ func (database *Database) AddToShift(sh Shift) error {
 }
 
 func (database *Database) AddAction(a Action) error {
-	result := database.Clauses(clause.OnConflict{
-		UpdateAll: true,
-	}).Create(&a)
+	// TODO(phil): Add check for a corresponding match in the `TeamMatch`
+	// table. Similar to `AddToStats2023()` below.
+	result := database.Create(&a)
 	return result.Error
 }
 
 func (database *Database) AddToStats2023(s Stats2023) error {
-	matches, err := database.QueryMatchesString(s.TeamNumber)
-	if err != nil {
-		return err
-	}
-	foundMatch := false
-	for _, match := range matches {
-		if match.MatchNumber == s.MatchNumber {
-			foundMatch = true
-			break
+	if !s.PreScouting {
+		matches, err := database.QueryMatchesString(s.TeamNumber)
+		if err != nil {
+			return err
 		}
-	}
-	if !foundMatch {
-		return errors.New(fmt.Sprint(
-			"Failed to find team ", s.TeamNumber,
-			" in match ", s.MatchNumber, " in the schedule."))
+		foundMatch := false
+		for _, match := range matches {
+			if match.MatchNumber == s.MatchNumber {
+				foundMatch = true
+				break
+			}
+		}
+		if !foundMatch {
+			return errors.New(fmt.Sprint(
+				"Failed to find team ", s.TeamNumber,
+				" in match ", s.MatchNumber, " in the schedule."))
+		}
 	}
 
 	result := database.Create(&s)
@@ -238,11 +249,11 @@ func (database *Database) ReturnStats2023() ([]Stats2023, error) {
 	return stats2023, result.Error
 }
 
-func (database *Database) ReturnStats2023ForTeam(teamNumber string, matchNumber int32, setNumber int32, compLevel string) ([]Stats2023, error) {
+func (database *Database) ReturnStats2023ForTeam(teamNumber string, matchNumber int32, setNumber int32, compLevel string, preScouting bool) ([]Stats2023, error) {
 	var stats2023 []Stats2023
 	result := database.
-		Where("team_number = ? AND match_number = ? AND set_number = ? AND comp_level = ?",
-			teamNumber, matchNumber, setNumber, compLevel).
+		Where("team_number = ? AND match_number = ? AND set_number = ? AND comp_level = ? AND pre_scouting = ?",
+			teamNumber, matchNumber, setNumber, compLevel, preScouting).
 		Find(&stats2023)
 	return stats2023, result.Error
 }
@@ -308,7 +319,7 @@ func (database *Database) AddNotes(data NotesData) error {
 		Notes:          data.Notes,
 		GoodDriving:    data.GoodDriving,
 		BadDriving:     data.BadDriving,
-		SolidPickup:    data.SolidPickup,
+		SolidPlacing:   data.SolidPlacing,
 		SketchyPlacing: data.SketchyPlacing,
 		GoodDefense:    data.GoodDefense,
 		BadDefense:     data.BadDefense,

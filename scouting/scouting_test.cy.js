@@ -1,5 +1,13 @@
 /// <reference types="cypress" />
 
+// On the 87th row of matches (index 86) click on the second team
+// (index 1) which resolves to team 5254 in semi final 2 match 3.
+const SEMI_FINAL_2_MATCH_3_TEAM_5254 = 86 * 6 + 1;
+
+// On the 1st row of matches (index 0) click on the fourth team
+// (index 3) which resolves to team 3990 in quals match 1.
+const QUALS_MATCH_1_TEAM_3990 = 0 * 6 + 3;
+
 function disableAlerts() {
   cy.get('#block_alerts').check({force: true}).should('be.checked');
 }
@@ -88,29 +96,56 @@ describe('Scouting app tests', () => {
     cy.get('.badge').eq(89).contains('Final 1 Match 3');
   });
 
-  it('should: prefill the match information.', () => {
-    headerShouldBe('Matches');
+  it('should: prevent users from enter invalid match information.', () => {
+    switchToTab('Entry');
+    headerShouldBe(' Team Selection ');
 
-    // On the 87th row of matches (index 86) click on the second team
-    // (index 1) which resolves to team 5254 in semi final 2 match 3.
-    cy.get('button.match-item')
-      .eq(86 * 6 + 1)
-      .click();
+    setInputTo('#match_number', '1');
+    setInputTo('#team_number', '5254');
+    setInputTo('#set_number', '1');
+    cy.get('#comp_level').select('Qualifications');
 
-    headerShouldBe('Team Selection');
-    cy.get('#match_number').should('have.value', '3');
-    cy.get('#team_number').should('have.value', '5254');
-    cy.get('#set_number').should('have.value', '2');
-    cy.get('#comp_level').should('have.value', '3: sf');
+    cy.contains('button', 'Next').should('be.disabled');
+  });
+
+  it('should: allow users to scout non-existent matches when pre-scouting.', () => {
+    switchToTab('Entry');
+    headerShouldBe(' Team Selection ');
+    setInputTo('#team_number', '1');
+
+    // The default team information should be invalid.
+    cy.contains('button', 'Next').should('be.disabled');
+
+    // Click the checkmark to designate this as pre-scouting.
+    // We should now be able to continue scouting.
+    cy.get('#pre_scouting').click();
+    clickButton('Next');
+    headerShouldBe('1 Init ');
+  });
+
+  it('should: let users enter match information manually.', () => {
+    switchToTab('Entry');
+    headerShouldBe(' Team Selection ');
+
+    setInputTo('#match_number', '3');
+    setInputTo('#team_number', '5254');
+    setInputTo('#set_number', '2');
+    cy.get('#comp_level').select('Semi Finals');
+
+    clickButton('Next');
+
+    headerShouldBe('5254 Init ');
   });
 
   //TODO(FILIP): Verify last action when the last action header gets added.
-  it('should: be able to get to submit screen in data scouting.', () => {
-    switchToTab('Data Entry');
-    headerShouldBe('Team Selection');
-    clickButton('Next');
+  it('should: be able to submit data scouting.', () => {
+    // Click on a random team in the Match list. The exact details here are not
+    // important, but we need to know what they are. This could as well be any
+    // other team from any other match.
+    cy.get('button.match-item').eq(SEMI_FINAL_2_MATCH_3_TEAM_5254).click();
 
     // Select Starting Position.
+    headerShouldBe('5254 Init ');
     cy.get('[type="radio"]').first().check();
     clickButton('Start Match');
 
@@ -127,21 +162,25 @@ describe('Scouting app tests', () => {
     clickButton('DEAD');
     clickButton('Revive');
 
-    // Engame.
+    // Endgame.
     clickButton('Endgame');
     cy.get('[type="checkbox"]').check();
 
-    // Should be on submit screen.
-    // TODO(FILIP): Verify that submitting works once we add it.
-
     clickButton('End Match');
-    headerShouldBe('Review and Submit');
+    headerShouldBe('5254 Review and Submit ');
+
+    clickButton('Submit');
+    headerShouldBe('5254 Success ');
+
+    // Now that the data is submitted, the button should be disabled.
+    switchToTab('Match List');
+    cy.get('button.match-item')
+      .eq(SEMI_FINAL_2_MATCH_3_TEAM_5254)
+      .should('be.disabled');
   });
 
   it('should: be able to return to correct screen with undo for pick and place.', () => {
-    switchToTab('Data Entry');
-    headerShouldBe('Team Selection');
-    clickButton('Next');
+    cy.get('button.match-item').eq(QUALS_MATCH_1_TEAM_3990).click();
 
     // Select Starting Position.
     cy.get('[type="radio"]').first().check();
@@ -154,13 +193,13 @@ describe('Scouting app tests', () => {
     clickButton('UNDO');
 
     // User should be back on pickup screen.
-    headerShouldBe('Pickup');
+    headerShouldBe('3990 Pickup ');
 
     // Check the same thing but for undoing place.
     clickButton('CUBE');
     clickButton('MID');
     clickButton('UNDO');
-    headerShouldBe('Place');
+    headerShouldBe('3990 Place ');
   });
 
   it('should: submit note scouting for multiple teams', () => {

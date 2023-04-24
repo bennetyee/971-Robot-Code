@@ -56,6 +56,7 @@ type SubmitShiftScheduleResponseT = submit_shift_schedule_response.SubmitShiftSc
 type SubmitDriverRanking = submit_driver_ranking.SubmitDriverRanking
 type SubmitDriverRankingResponseT = submit_driver_ranking_response.SubmitDriverRankingResponseT
 type SubmitActions = submit_actions.SubmitActions
+type Action = submit_actions.Action
 type SubmitActionsResponseT = submit_actions_response.SubmitActionsResponseT
 
 // The interface we expect the database abstraction to conform to.
@@ -69,11 +70,12 @@ type Database interface {
 	ReturnAllDriverRankings() ([]db.DriverRankingData, error)
 	ReturnAllShifts() ([]db.Shift, error)
 	ReturnStats2023() ([]db.Stats2023, error)
-	ReturnStats2023ForTeam(teamNumber string, matchNumber int32, setNumber int32, compLevel string) ([]db.Stats2023, error)
+	ReturnStats2023ForTeam(teamNumber string, matchNumber int32, setNumber int32, compLevel string, preScouting bool) ([]db.Stats2023, error)
 	QueryAllShifts(int) ([]db.Shift, error)
 	QueryNotes(int32) ([]string, error)
 	AddNotes(db.NotesData) error
 	AddDriverRanking(db.DriverRankingData) error
+	AddAction(db.Action) error
 }
 
 // Handles unknown requests. Just returns a 404.
@@ -160,7 +162,7 @@ func findIndexInList(list []string, comp_level string) (int, error) {
 
 func (handler requestAllMatchesHandler) teamHasBeenDataScouted(key MatchAssemblyKey, teamNumber string) (bool, error) {
 	stats, err := handler.db.ReturnStats2023ForTeam(
-		teamNumber, key.MatchNumber, key.SetNumber, key.CompLevel)
+		teamNumber, key.MatchNumber, key.SetNumber, key.CompLevel, false)
 	if err != nil {
 		return false, err
 	}
@@ -353,7 +355,7 @@ func (handler submitNoteScoutingHandler) ServeHTTP(w http.ResponseWriter, req *h
 		Notes:          string(request.Notes()),
 		GoodDriving:    bool(request.GoodDriving()),
 		BadDriving:     bool(request.BadDriving()),
-		SolidPickup:    bool(request.SolidPickup()),
+		SolidPlacing:   bool(request.SolidPlacing()),
 		SketchyPlacing: bool(request.SketchyPlacing()),
 		GoodDefense:    bool(request.GoodDefense()),
 		BadDefense:     bool(request.BadDefense()),
@@ -375,10 +377,12 @@ func ConvertActionsToStat(submitActions *submit_actions.SubmitActions) (db.Stats
 	cycles := int64(0)
 	picked_up := false
 	lastPlacedTime := int64(0)
-	stat := db.Stats2023{TeamNumber: string(submitActions.TeamNumber()), MatchNumber: submitActions.MatchNumber(), SetNumber: submitActions.SetNumber(), CompLevel: string(submitActions.CompLevel()),
+	stat := db.Stats2023{
+		PreScouting: submitActions.PreScouting(),
+		TeamNumber:  string(submitActions.TeamNumber()), MatchNumber: submitActions.MatchNumber(), SetNumber: submitActions.SetNumber(), CompLevel: string(submitActions.CompLevel()),
 		StartingQuadrant: 0, LowCubesAuto: 0, MiddleCubesAuto: 0, HighCubesAuto: 0, CubesDroppedAuto: 0,
 		LowConesAuto: 0, MiddleConesAuto: 0, HighConesAuto: 0, ConesDroppedAuto: 0, LowCubes: 0, MiddleCubes: 0, HighCubes: 0,
-		CubesDropped: 0, LowCones: 0, MiddleCones: 0, HighCones: 0, ConesDropped: 0, AvgCycle: 0, CollectedBy: string(submitActions.CollectedBy()),
+		CubesDropped: 0, LowCones: 0, MiddleCones: 0, HighCones: 0, ConesDropped: 0, SuperchargedPieces: 0, AvgCycle: 0, CollectedBy: "",
 	}
 	// Loop over all actions.
 	for i := 0; i < submitActions.ActionsListLength(); i++ {
@@ -395,6 +399,13 @@ func ConvertActionsToStat(submitActions *submit_actions.SubmitActions) (db.Stats
 			var startMatchAction submit_actions.StartMatchAction
 			startMatchAction.Init(actionTable.Bytes, actionTable.Pos)
 			stat.StartingQuadrant = startMatchAction.Position()
+		} else if action_type == submit_actions.ActionTypeMobilityAction {
+			var mobilityAction submit_actions.MobilityAction
+			mobilityAction.Init(actionTable.Bytes, actionTable.Pos)
+			if mobilityAction.Mobility() {
+				stat.Mobility = true
+			}
+
 		} else if action_type == submit_actions.ActionTypeAutoBalanceAction {
 			var autoBalanceAction submit_actions.AutoBalanceAction
 			autoBalanceAction.Init(actionTable.Bytes, actionTable.Pos)
@@ -458,6 +469,8 @@ func ConvertActionsToStat(submitActions *submit_actions.SubmitActions) (db.Stats
 				stat.HighConesAuto += 1
 			} else if object == 1 && level == 2 && auto == false {
 				stat.HighCones += 1
+			} else if level == 3 {
+				stat.SuperchargedPieces += 1
 			} else {
 				return db.Stats2023{}, errors.New(fmt.Sprintf("Got unknown ObjectType/ScoreLevel/Auto combination"))
 			}
@@ -539,7 +552,9 @@ func (handler request2023DataScoutingHandler) ServeHTTP(w http.ResponseWriter, r
 			MiddleCones:        stat.MiddleCones,
 			HighCones:          stat.HighCones,
 			ConesDropped:       stat.ConesDropped,
+			SuperchargedPieces: stat.SuperchargedPieces,
 			AvgCycle:           stat.AvgCycle,
+			Mobility:           stat.Mobility,
 			DockedAuto:         stat.DockedAuto,
 			EngagedAuto:        stat.EngagedAuto,
 			BalanceAttemptAuto: stat.BalanceAttemptAuto,
@@ -735,7 +750,7 @@ func (handler requestAllNotesHandler) ServeHTTP(w http.ResponseWriter, req *http
 			Notes:          note.Notes,
 			GoodDriving:    note.GoodDriving,
 			BadDriving:     note.BadDriving,
-			SolidPickup:    note.SolidPickup,
+			SolidPlacing:   note.SolidPlacing,
 			SketchyPlacing: note.SketchyPlacing,
 			GoodDefense:    note.GoodDefense,
 			BadDefense:     note.BadDefense,
@@ -785,6 +800,77 @@ func (handler requestAllDriverRankingsHandler) ServeHTTP(w http.ResponseWriter, 
 	w.Write(builder.FinishedBytes())
 }
 
+type submitActionsHandler struct {
+	db Database
+}
+
+func (handler submitActionsHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Get the username of the person submitting the data.
+	username := parseUsername(req)
+
+	requestBytes, err := io.ReadAll(req.Body)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, fmt.Sprint("Failed to read request bytes:", err))
+		return
+	}
+
+	request, success := parseRequest(w, requestBytes, "SubmitActions", submit_actions.GetRootAsSubmitActions)
+	if !success {
+		return
+	}
+
+	log.Println("Got actions for match", request.MatchNumber(), "team", request.TeamNumber(), "from", username)
+
+	for i := 0; i < request.ActionsListLength(); i++ {
+
+		var action Action
+		request.ActionsList(&action, i)
+
+		dbAction := db.Action{
+			PreScouting: request.PreScouting(),
+			TeamNumber:  string(request.TeamNumber()),
+			MatchNumber: request.MatchNumber(),
+			SetNumber:   request.SetNumber(),
+			CompLevel:   string(request.CompLevel()),
+			//TODO: Serialize CompletedAction
+			CompletedAction: []byte{},
+			TimeStamp:       action.Timestamp(),
+			CollectedBy:     username,
+		}
+
+		// Do some error checking.
+		if action.Timestamp() < 0 {
+			respondWithError(w, http.StatusBadRequest, fmt.Sprint(
+				"Invalid timestamp field value of ", action.Timestamp()))
+			return
+		}
+
+		err = handler.db.AddAction(dbAction)
+		if err != nil {
+			respondWithError(w, http.StatusInternalServerError, fmt.Sprint("Failed to add action to database: ", err))
+			return
+		}
+	}
+
+	stats, err := ConvertActionsToStat(request)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprint("Failed to convert actions to stats: ", err))
+		return
+	}
+
+	stats.CollectedBy = username
+
+	err = handler.db.AddToStats2023(stats)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, fmt.Sprint("Failed to submit stats: ", stats, ": ", err))
+		return
+	}
+
+	builder := flatbuffers.NewBuilder(50 * 1024)
+	builder.Finish((&SubmitActionsResponseT{}).Pack(builder))
+	w.Write(builder.FinishedBytes())
+}
+
 func HandleRequests(db Database, scoutingServer server.ScoutingServer) {
 	scoutingServer.HandleFunc("/requests", unknown)
 	scoutingServer.Handle("/requests/request/all_matches", requestAllMatchesHandler{db})
@@ -796,4 +882,5 @@ func HandleRequests(db Database, scoutingServer server.ScoutingServer) {
 	scoutingServer.Handle("/requests/submit/shift_schedule", submitShiftScheduleHandler{db})
 	scoutingServer.Handle("/requests/request/shift_schedule", requestShiftScheduleHandler{db})
 	scoutingServer.Handle("/requests/submit/submit_driver_ranking", SubmitDriverRankingHandler{db})
+	scoutingServer.Handle("/requests/submit/submit_actions", submitActionsHandler{db})
 }
