@@ -69,7 +69,7 @@ def trials(num_iter):
                            random.uniform(MIN_Y, MAX_Y)])
             if valid_position(pt):
                 break
-            # pi/4 chance of success each loop iteration
+            # chance of success each loop iteration: pi/4 - center hole
         orient = random.getrandbits(1) != 0
         one_trial(pt, orient)
 
