@@ -32,14 +32,24 @@ options = None  # argparse.Namespace
 # abs_sum if l is really an np.array object can be done as
 # np.linalg.norm(l, ord=1)
 
+# Triangle inequality.  Is the point reachable?
 def valid_position(pt):
-    # numpy.linalg.norm(pt - JOINT_CENTER) < MAX_RADIUS
+    # len = numpy.linalg.norm(pt - JOINT_CENTER)
+    # return MIN_RADIUS < len and len < MAX_RADIUS
     pt_z = pt - JOINT_CENTER
     lensq = pt_z.dot(pt_z)
     return MIN_RADIUS_SQ < lensq and lensq < MAX_RADIUS_SQ
 
+# Floating point "equality" is approximate due to round-off.
 def feq(x1, x2, eps = EPSILON):
     return abs(x1 - x2) < eps
+
+def check(boolval, error_message_fn):
+    if not options.keep_going:
+        assert boolval, error_message_fn()
+    elif not boolval:
+        sys.stdout.write(error_message_fn() + '\n')
+        sys.stdout.flush()
 
 def one_trial(pt, orient):
     def log_msg():
@@ -52,27 +62,20 @@ def one_trial(pt, orient):
     check(feq(r[1], pt[1]), log_msg)
     check(r[2] == orient, log_msg)
 
-def check(boolval, error_message_fn):
-    if not options.keep_going:
-        assert boolval, error_message_fn()
-    elif not boolval:
-        sys.stdout.write(error_message_fn() + '\n')
+def progress_dots(iter_num, verbosity, modulus_array):
+    if verbosity > len(modulus_array):
+        verbosity = -1  # last entry
+    modulus = modulus_array[verbosity]
+    if modulus > 0 and iter_num % modulus == 0:
+        sys.stdout.write('.')
         sys.stdout.flush()
 
 def trials(num_iter):
     for trial in range(num_iter):
-        if options.verbose > 2:
-            if trial % 1000 == 0:
-                sys.stdout.write('.')
-                sys.stdout.flush()
-        elif options.verbose > 1:
-            if trial % 100000 == 0:
-                sys.stdout.write('.')
-                sys.stdout.flush()
-        elif options.verbose > 0:
-            if trail % 10000000 == 0:
-                sys.stdout.write('.')
-                sys.stdout.flush()
+        # do we really want progress dots that vary in speed by verbosity?
+        progress_dots(trial, options.verbose, [0, 100_000, 10_000, 1_000]);
+
+        # select random inputs
         while True:
             pt = np.array([random.uniform(MIN_X, MAX_X),
                            random.uniform(MIN_Y, MAX_Y)])
@@ -80,6 +83,8 @@ def trials(num_iter):
                 break
             # chance of success each loop iteration: pi/4 - center hole
         orient = random.getrandbits(1) != 0
+
+        # roundtrip (x,y), orient to thetas and back
         one_trial(pt, orient)
 
 def main(argv):
