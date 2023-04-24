@@ -42,13 +42,22 @@ def feq(x1, x2, eps = EPSILON):
     return abs(x1 - x2) < eps
 
 def one_trial(pt, orient):
+    def log_msg():
+        return f'pt {pt}, orient {orient}, r {r}'
     thetas = mut.to_theta(pt, orient)
 
     r = mut.to_xy(thetas[0], thetas[1])
 
-    assert feq(r[0], pt[0]), f'pt {pt}, orient {orient}, r {r}'
-    assert feq(r[1], pt[1]), f'pt {pt}, orient {orient}, r {r}'
-    assert r[2] == orient, f'pt {pt}, orient {orient}, r {r}'
+    check(feq(r[0], pt[0]), log_msg)
+    check(feq(r[1], pt[1]), log_msg)
+    check(r[2] == orient, log_msg)
+
+def check(boolval, error_message_fn):
+    if not options.keep_going:
+        assert boolval, error_message_fn()
+    elif not boolval:
+        sys.stdout.write(error_message_fn() + '\n')
+        sys.stdout.flush()
 
 def trials(num_iter):
     for trial in range(num_iter):
@@ -79,6 +88,9 @@ def main(argv):
                         help='number of random sample iterations')
     parser.add_argument('--seed', '-s', type=int, default=None,
                         help='random number generator seed')
+    parser.add_argument('--keep-going', '-k', type=bool, default=False,
+                        action=argparse.BooleanOptionalAction,
+                        help='keep fuzzing after finding an error')
     parser.add_argument('--verbose', '-v', action='count',
                         default=0,
                         help='increment the verbosity level by 1')
